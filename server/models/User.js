@@ -1,34 +1,11 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema({
-    username: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    profilePicture: {
-        type: String,
-        default: 'defaultProfilePic.png'
-    },
-    bio: {
-        type: String,
-        maxlength: 250
-    },
-    age: {
-        type: Number,
-        required: true
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
+const UserSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  bio: { type: String, default: "" },
+  profilePicture: { type: String, default: "" }, // URL or path to image
+  age: { type: Number, required: true },
 });
 
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
+module.exports = mongoose.model("User", UserSchema);

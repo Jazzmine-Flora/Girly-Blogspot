@@ -1,75 +1,64 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
+import { signup } from "../../api";
 
 const SignUp = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [age, setAge] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [bio, setBio] = useState("");
+  const [message, setMessage] = useState("");
+  const [age, setAge] = useState("");
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      console.log({ username, password, bio, age });
+      if (!username || !password || !age) {
+        setMessage("Username, password, and age are required.");
+        return;
+      }
+      if (age < 13) {
+        setMessage("You must be at least 13 years old to sign up.");
+        return;
+      }
+      await signup({ username, password, bio, age: parseInt(age) });
+      setMessage("Signup successful! You can now sign in.");
+    } catch (err) {
+      setMessage("Signup failed.");
+    }
+  };
 
-        if (age < 18) {
-            setError('You must be at least 18 years old to sign up.');
-            return;
-        }
-
-        try {
-            const response = await axios.post('/api/auth/signup', {
-                username,
-                password,
-                age,
-            });
-            setSuccess('Registration successful! You can now log in.');
-            setUsername('');
-            setPassword('');
-            setAge('');
-        } catch (err) {
-            setError('Registration failed. Please try again.');
-        }
-    };
-
-    return (
-        <div className="signup-container">
-            <h2>Sign Up</h2>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label>Username:</label>
-                    <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                    />
-                </div>
-                <div>
-                    <label>Password:</label>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                <div>
-                    <label>Age:</label>
-                    <input
-                        type="number"
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        required
-                    />
-                </div>
-                <button type="submit">Sign Up</button>
-                {error && <p className="error">{error}</p>}
-                {success && <p className="success">{success}</p>}
-            </form>
-        </div>
-    );
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2>Sign Up</h2>
+      <input
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        placeholder="Username"
+        required
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+        required
+      />
+      <input
+        type="number"
+        value={age}
+        onChange={(e) => setAge(e.target.value)}
+        placeholder="Age"
+        required
+      />
+      <input
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+        placeholder="Bio (optional)"
+      />
+      <button type="submit">Sign Up</button>
+      {message && <p>{message}</p>}
+    </form>
+  );
 };
 
 export default SignUp;
