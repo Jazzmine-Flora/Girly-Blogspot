@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { theme } from "../../styles/theme";
@@ -34,15 +34,59 @@ const AvatarPreview = styled.div`
   margin-bottom: ${theme.spacing.md};
 `;
 
+const AvatarWrapper = styled.div`
+  position: relative;
+`;
+
+const HiddenFileInput = styled.input`
+  display: none;
+`;
+
+const ImageActions = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${theme.spacing.sm};
+`;
+
+const ImageButton = styled.button`
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  font-size: ${theme.typography.sizes.sm};
+  font-weight: ${theme.typography.weights.medium};
+  border: 1px solid ${theme.colors.border};
+  border-radius: ${theme.radii.md};
+  background: ${theme.colors.surface};
+  color: ${theme.colors.text};
+  cursor: pointer;
+  transition: all ${theme.transitions.fast};
+
+  &:hover {
+    background: ${theme.colors.surfaceHover};
+    border-color: ${theme.colors.primary};
+  }
+`;
+
+const RemoveButton = styled(ImageButton)`
+  color: ${theme.colors.error};
+  border-color: transparent;
+  background: transparent;
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+
+  &:hover {
+    background: ${theme.colors.error}10;
+  }
+`;
+
 export function EditProfilePage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
+  const fileInputRef = useRef(null);
   const [profileData, setProfileData] = useState({
     username: "",
     bio: "",
     profilePicture: "",
   });
+  const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +104,14 @@ export function EditProfilePage() {
           bio: user.bio || "",
           profilePicture: user.profilePicture || "",
         });
+        // Set initial preview from existing profile picture
+        if (user.profilePicture) {
+          if (user.profilePicture.startsWith("data:")) {
+            setPreviewImage(user.profilePicture);
+          } else {
+            setPreviewImage(`/${user.profilePicture}`);
+          }
+        }
       } catch {
         setError("Failed to load profile.");
       } finally {
@@ -74,14 +126,35 @@ export function EditProfilePage() {
     setProfileData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image too large. Max 5MB allowed.");
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileData((prev) => ({ ...prev, profilePicture: reader.result }));
+        const result = reader.result;
+        setPreviewImage(result);
+        setProfileData((prev) => ({ ...prev, profilePicture: result }));
       };
       reader.readAsDataURL(file);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = "";
+  };
+
+  const handleRemoveImage = () => {
+    setPreviewImage(null);
+    setProfileData((prev) => ({ ...prev, profilePicture: "" }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -92,20 +165,15 @@ export function EditProfilePage() {
     try {
       await updateUserProfile(userId, profileData);
       navigate(userId ? `/profile/${userId}` : "/profile");
-    } catch {
-      setError("Failed to update profile.");
+    } catch (err) {
+      console.error("Update error:", err);
+      setError(err.response?.data?.message || "Failed to update profile.");
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) return <p style={{ textAlign: "center", color: theme.colors.textMuted }}>Loading…</p>;
-
-  const profilePic = profileData.profilePicture?.startsWith("data:")
-    ? profileData.profilePicture
-    : profileData.profilePicture
-    ? `/${profileData.profilePicture}`
-    : null;
 
   return (
     <Page>
@@ -119,23 +187,40 @@ export function EditProfilePage() {
               </p>
             )}
             <AvatarPreview>
-              <Avatar src={profilePic} name={profileData.username} size="80px" />
-              <div>
+              <AvatarWrapper>
+                <Avatar 
+                  key={previewImage || "no-image"} 
+                  src={previewImage} 
+                  name={profileData.username} 
+                  size="80px" 
+                />
+              </AvatarWrapper>
+              <ImageActions>
                 <label
                   style={{
                     fontSize: theme.typography.sizes.sm,
                     fontWeight: theme.typography.weights.medium,
+                    marginBottom: theme.spacing.xs,
+                    display: "block",
                   }}
                 >
                   Profile Picture
                 </label>
-                <input
+                <HiddenFileInput
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   onChange={handleImageChange}
-                  style={{ marginTop: theme.spacing.xs, display: "block" }}
                 />
-              </div>
+                <ImageButton type="button" onClick={handleImageClick}>
+                  {previewImage ? "Change Photo" : "Upload Photo"}
+                </ImageButton>
+                {previewImage && (
+                  <RemoveButton type="button" onClick={handleRemoveImage}>
+                    Remove Photo
+                  </RemoveButton>
+                )}
+              </ImageActions>
             </AvatarPreview>
             <Input
               label="Username"
