@@ -1,52 +1,115 @@
 const express = require("express");
+const mongoose = require("mongoose");
+const multer = require("multer");
 const router = express.Router();
 const Post = require("../models/Post");
 const auth = require("../middleware/auth");
+const { uploadMedia } = require("../middleware/upload");
 
-// Create a new post
-router.post("/", auth, async (req, res) => {
-  const { title, content } = req.body;
+const handleUploadError = (err, req, res, next) => {
+  if (!err) return next();
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ message: "File too large. Images: 5MB max, Videos: 50MB max." });
+    }
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({ message: "Too many files. Max 5 images or 1 video." });
+    }
+  }
+  return res.status(400).json({ message: err.message || "Upload error" });
+};
+
+// Create a new post (supports multipart/form-data: title, content, images[], video)
+router.post("/", auth, (req, res, next) => {
+  uploadMedia(req, res, (err) => {
+    if (err) return handleUploadError(err, req, res, next);
+    next();
+  });
+}, async (req, res) => {
   try {
+    const title = req.body.title?.trim() || "";
+    const content = req.body.content?.trim() || "";
+    const files = req.files || {};
+    const imageFiles = files.images || [];
+    const videoFile = files.video?.[0];
+
+    // Validate: must have text and/or media
+    const hasText = title || content;
+    const hasImages = imageFiles.length > 0;
+    const hasVideo = !!videoFile;
+
+    if (!hasText && !hasImages && !hasVideo) {
+      return res.status(400).json({ message: "Post must have title, content, image(s), or video." });
+    }
+    if (hasImages && hasVideo) {
+      return res.status(400).json({ message: "Cannot have both images and video in one post." });
+    }
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (hasImages && imageFiles.some((f) => f.size > MAX_IMAGE_SIZE)) {
+      return res.status(400).json({ message: "Image too large. Max 5MB per image." });
+    }
+
+    let mediaType = null;
+    let mediaUrls = [];
+
+    if (hasImages) {
+      mediaType = "image";
+      mediaUrls = imageFiles.map((f) => `/uploads/${f.filename}`);
+    } else if (hasVideo) {
+      mediaType = "video";
+      mediaUrls = [`/uploads/${videoFile.filename}`];
+    }
+
+    // Ensure author is stored as ObjectId (Mongoose will convert string automatically, but be explicit)
+    const authorId = mongoose.Types.ObjectId.isValid(req.user.id) 
+      ? new mongoose.Types.ObjectId(req.user.id)
+      : req.user.id;
+    
     const newPost = new Post({
-      title,
+      title: title || (hasImages ? "Photo" : hasVideo ? "Video" : "Post"),
       content,
-      author: req.user.id,
+      author: authorId,
+      mediaType,
+      mediaUrls,
       createdAt: new Date(),
     });
     await newPost.save();
-    res.status(201).json(newPost);
+    const populated = await Post.findById(newPost._id).populate("author", "username profilePicture").lean();
+    const io = req.app.get("io");
+    if (io) io.emit("post:created", populated);
+    res.status(201).json(populated);
   } catch (error) {
-    res.status(500).json({ message: "Error creating post", error });
+    res.status(500).json({ message: "Error creating post", error: error.message });
   }
 });
 
-// Get all posts
-// Get all posts for the logged-in user
+// Get all posts for the logged-in user (feed is at app level: GET /api/posts/feed)
 router.get("/", auth, async (req, res) => {
   try {
-    const posts = await Post.find({ author: req.user.id }).populate(
-      "author",
-      "username"
-    );
-    res.status(200).json(posts); // Always returns an array
+    const posts = await Post.find({ author: req.user.id })
+      .populate("author", "username profilePicture")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.status(200).json(Array.isArray(posts) ? posts : []);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching posts", error });
+    res.status(500).json({ message: "Error fetching posts", error: error.message });
   }
 });
 
+// NOTE: /user/:userId route is defined in app.js to ensure correct route ordering
+
 // Get a single post by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", auth, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).populate(
-      "author",
-      "username"
-    );
+    const post = await Post.findById(req.params.id)
+      .populate("author", "username profilePicture")
+      .lean();
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
     res.status(200).json(post);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching post", error });
+    res.status(500).json({ message: "Error fetching post", error: error.message });
   }
 });
 
@@ -60,12 +123,12 @@ router.put("/:id", auth, async (req, res) => {
         .status(403)
         .json({ message: "Not authorized to update this post" });
     }
-    post.title = title;
-    post.content = content;
+    if (title !== undefined) post.title = title;
+    if (content !== undefined) post.content = content;
     await post.save();
     res.status(200).json(post);
   } catch (error) {
-    res.status(500).json({ message: "Error updating post", error });
+    res.status(500).json({ message: "Error updating post", error: error.message });
   }
 });
 
@@ -78,10 +141,10 @@ router.delete("/:id", auth, async (req, res) => {
         .status(403)
         .json({ message: "Not authorized to delete this post" });
     }
-    await post.remove();
+    await post.deleteOne();
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ message: "Error deleting post", error });
+    res.status(500).json({ message: "Error deleting post", error: error.message });
   }
 });
 

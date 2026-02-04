@@ -5,6 +5,9 @@ node_modules/
 client/build/
 dist/
 
+# Uploads (user media)
+server/uploads/
+
 # Environment
 .env
 .env.local

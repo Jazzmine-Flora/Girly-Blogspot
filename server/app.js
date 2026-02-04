@@ -1,38 +1,132 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const mongoose = require("mongoose");
-const bodyParser = require("body-parser");
 const cors = require("cors");
 const authRoutes = require("./routes/auth");
 const postRoutes = require("./routes/posts");
 const userRoutes = require("./routes/users");
 const authMiddleware = require("./middleware/auth");
 const ageCheckMiddleware = require("./middleware/age-check");
+const jwt = require("jsonwebtoken");
+const Post = require("./models/Post");
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+];
 
-// Middleware
-app.use(express.json());
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
 
-// Public routes (no auth/age check)
+// Make io available to routes
+app.set("io", io);
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Serve uploaded files statically
+app.use("/uploads", express.static("uploads"));
+
 app.use("/api/auth", authRoutes);
-
-// Protected routes (with auth/age check)
 app.use("/api/users", authMiddleware, ageCheckMiddleware, userRoutes);
+
+// Feed route MUST be before posts router so /feed is not matched as /:id
+// Supports pagination: ?limit=20&skip=0
+app.get(
+  "/api/posts/feed",
+  authMiddleware,
+  ageCheckMiddleware,
+  async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+      const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
+      const posts = await Post.find()
+        .populate("author", "username profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      res.status(200).json(Array.isArray(posts) ? posts : []);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching feed", error: error.message });
+    }
+  }
+);
+
+// User posts route - must be before posts router so /user/:userId is not matched as /:id
+app.get(
+  "/api/posts/user/:userId",
+  authMiddleware,
+  ageCheckMiddleware,
+  async (req, res) => {
+    try {
+      const rawUserId = req.params.userId?.trim();
+      if (!rawUserId || !mongoose.Types.ObjectId.isValid(rawUserId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+      const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
+      
+      const authorId = new mongoose.Types.ObjectId(rawUserId);
+      const posts = await Post.find({ author: authorId })
+        .populate("author", "username profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      
+      res.status(200).json(Array.isArray(posts) ? posts : []);
+    } catch (error) {
+      console.error("Error fetching user posts:", error);
+      res.status(500).json({ message: "Error fetching user posts", error: error.message });
+    }
+  }
+);
+
 app.use("/api/posts", authMiddleware, ageCheckMiddleware, postRoutes);
 
-// Database connection
+// Socket.IO auth & connection
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error("Authentication required"));
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "devsecret");
+    socket.userId = decoded.id;
+    next();
+  } catch {
+    next(new Error("Invalid token"));
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
+
 mongoose
-  .connect("mongodb://localhost:27017/girly-blog", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect("mongodb+srv://unisoftmw:Qwer123$@cluster0.mah6yam.mongodb.net/")
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
