@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { GlobalStyles } from "./styles/GlobalStyles";
-import { Navbar } from "./components/Navbar/Navbar";
+import { Navbar } from "./components/Layout/Navbar";
 import { ProtectedRoute } from "./components/Layout/ProtectedRoute";
 import { HomePage } from "./components/Home/HomePage";
 import { FeedPage } from "./components/Feed/FeedPage";
