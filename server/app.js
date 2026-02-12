@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -15,12 +16,17 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
-const allowedOrigins = [
+const defaultOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001",
 ];
+const envOrigins = (process.env.ALLOWED_ORIGINS || process.env.CLIENT_URL || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = [...defaultOrigins, ...envOrigins];
 
 const io = new Server(server, {
   cors: {
@@ -122,8 +128,11 @@ io.on("connection", (socket) => {
   });
 });
 
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb+srv://unisoftmw:Qwer123$@cluster0.mah6yam.mongodb.net/";
+
 mongoose
-  .connect("mongodb+srv://unisoftmw:Qwer123$@cluster0.mah6yam.mongodb.net/")
+  .connect(MONGODB_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 

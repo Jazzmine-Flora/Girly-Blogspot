@@ -2,6 +2,9 @@
   "name": "girly-blog-platform",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "16.x"
+  },
   "proxy": "http://localhost:5000",
   "scripts": {
     "start": "react-scripts start",
