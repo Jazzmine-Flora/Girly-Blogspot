@@ -71,8 +71,9 @@ export function SignUpPage() {
       await signup({ username: username.trim(), password, bio: bio.trim() || undefined, age: ageNum });
       setMessage("Account created! Redirecting to sign in…");
       setTimeout(() => navigate("/signin"), 1500);
-    } catch {
-      setMessage("Sign up failed. Username may already be taken.");
+    } catch (error) {
+      const serverMessage = error?.response?.data?.message;
+      setMessage(serverMessage || "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
     }

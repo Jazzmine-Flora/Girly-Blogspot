@@ -9,14 +9,27 @@ const router = express.Router();
 // Sign Up Route
 router.post("/signup", async (req, res) => {
   const { username, password, bio, age } = req.body;
+  const normalizedUsername = username?.trim();
 
   try {
+    if (!normalizedUsername || !password || !age) {
+      return res.status(400).json({ message: "Username, password, and age are required." });
+    }
+
+    const existingUser = await User.findOne({ username: normalizedUsername });
+    if (existingUser) {
+      return res.status(409).json({ message: "Username is already taken." });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, password: hashedPassword, bio, age }); // include age
+    const newUser = new User({ username: normalizedUsername, password: hashedPassword, bio, age }); // include age
     await newUser.save();
     res.status(201).json({ message: "User created successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error creating user", error });
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Username is already taken." });
+    }
+    res.status(500).json({ message: "Error creating user" });
   }
 });
 
