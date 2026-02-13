@@ -21,6 +21,8 @@ const defaultOrigins = [
   "http://localhost:3001",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001",
+  "https://girly-blogspot.vercel.app",
+  "https://girly-blogspot-jazzmine-floras-projects.vercel.app",
 ];
 const envOrigins = (process.env.ALLOWED_ORIGINS || process.env.CLIENT_URL || "")
   .split(",")
