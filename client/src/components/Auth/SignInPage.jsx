@@ -62,7 +62,7 @@ export function SignInPage() {
     setLoading(true);
     try {
       const { data } = await login({ username, password });
-      authLogin(data.token, data.userId);
+      authLogin(data.token, data.userId, data.isAdmin);
       navigate(from, { replace: true });
     } catch {
       setMessage("Invalid username or password.");

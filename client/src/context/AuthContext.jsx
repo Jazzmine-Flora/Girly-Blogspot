@@ -29,26 +29,32 @@ export function AuthProvider({ children }) {
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const userId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+  const storedIsAdmin = typeof window !== "undefined" ? localStorage.getItem("isAdmin") : null;
 
-  const login = useCallback((token, userId) => {
+  const login = useCallback((token, userId, isAdmin = false) => {
     localStorage.setItem("token", token);
     localStorage.setItem("userId", userId);
+    localStorage.setItem("isAdmin", isAdmin ? "true" : "false");
     const payload = token ? parseJwt(token) : null;
-    setUser({ id: userId, isAdmin: !!payload?.isAdmin });
+    const resolvedIsAdmin = typeof isAdmin === "boolean" ? isAdmin : !!payload?.isAdmin;
+    setUser({ id: userId, isAdmin: resolvedIsAdmin });
   }, []);
 
   const logout = useCallback(() => {
     disconnectSocket();
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
+    localStorage.removeItem("isAdmin");
     setUser(null);
   }, []);
 
   useEffect(() => {
     const payload = token ? parseJwt(token) : null;
-    setUser(userId ? { id: userId, isAdmin: !!payload?.isAdmin } : null);
+    const fallbackIsAdmin = storedIsAdmin === "true";
+    const resolvedIsAdmin = typeof payload?.isAdmin === "boolean" ? payload.isAdmin : fallbackIsAdmin;
+    setUser(userId ? { id: userId, isAdmin: resolvedIsAdmin } : null);
     setLoading(false);
-  }, [userId, token]);
+  }, [userId, token, storedIsAdmin]);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,6 +62,9 @@ export function AuthProvider({ children }) {
     getUserProfile(userId)
       .then((data) => {
         if (!isMounted) return;
+        if (typeof data?.isAdmin === "boolean") {
+          localStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");
+        }
         setUser((prev) => ({
           ...(prev || {}),
           id: userId,
@@ -74,13 +83,16 @@ export function AuthProvider({ children }) {
     const onStorage = () => {
       const newUserId = localStorage.getItem("userId");
       const newToken = localStorage.getItem("token");
+      const newIsAdmin = localStorage.getItem("isAdmin") === "true";
       const payload = newToken ? parseJwt(newToken) : null;
-      setUser(newUserId ? { id: newUserId, isAdmin: !!payload?.isAdmin } : null);
+      const resolvedIsAdmin = typeof payload?.isAdmin === "boolean" ? payload.isAdmin : newIsAdmin;
+      setUser(newUserId ? { id: newUserId, isAdmin: resolvedIsAdmin } : null);
     };
     const onUnauthorized = () => {
       disconnectSocket();
       localStorage.removeItem("token");
       localStorage.removeItem("userId");
+      localStorage.removeItem("isAdmin");
       setUser(null);
     };
     window.addEventListener("storage", onStorage);

@@ -53,7 +53,7 @@ router.post("/signin", async (req, res) => {
       process.env.JWT_SECRET || "devsecret",
       { expiresIn: "1h" }
     );
-    res.status(200).json({ token, userId: user._id.toString() });
+    res.status(200).json({ token, userId: user._id.toString(), isAdmin: !!user.isAdmin });
   } catch (error) {
     res.status(500).json({ message: "Error signing in", error });
   }
