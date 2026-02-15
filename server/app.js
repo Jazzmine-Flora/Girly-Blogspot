@@ -17,6 +17,24 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
+app.set("trust proxy", 1);
+
+const getBaseUrl = (req) => {
+  const forwardedProto = req.headers["x-forwarded-proto"]?.split(",")[0];
+  const protocol = forwardedProto || req.protocol || "http";
+  return `${protocol}://${req.get("host")}`;
+};
+
+const withAbsoluteMediaUrls = (post, baseUrl) => {
+  if (!post || !Array.isArray(post.mediaUrls)) return post;
+  const mediaUrls = post.mediaUrls.map((url) => {
+    if (!url) return url;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`;
+  });
+  return { ...post, mediaUrls };
+};
+
 const defaultOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
@@ -83,7 +101,11 @@ app.get(
         .skip(skip)
         .limit(limit)
         .lean();
-      res.status(200).json(Array.isArray(posts) ? posts : []);
+      const baseUrl = getBaseUrl(req);
+      const normalized = Array.isArray(posts)
+        ? posts.map((p) => withAbsoluteMediaUrls(p, baseUrl))
+        : [];
+      res.status(200).json(normalized);
     } catch (error) {
       res.status(500).json({ message: "Error fetching feed", error: error.message });
     }
@@ -112,7 +134,11 @@ app.get(
         .limit(limit)
         .lean();
       
-      res.status(200).json(Array.isArray(posts) ? posts : []);
+      const baseUrl = getBaseUrl(req);
+      const normalized = Array.isArray(posts)
+        ? posts.map((p) => withAbsoluteMediaUrls(p, baseUrl))
+        : [];
+      res.status(200).json(normalized);
     } catch (error) {
       console.error("Error fetching user posts:", error);
       res.status(500).json({ message: "Error fetching user posts", error: error.message });
@@ -135,7 +161,11 @@ app.get(
         .skip(skip)
         .limit(limit)
         .lean();
-      res.status(200).json(Array.isArray(posts) ? posts : []);
+      const baseUrl = getBaseUrl(req);
+      const normalized = Array.isArray(posts)
+        ? posts.map((p) => withAbsoluteMediaUrls(p, baseUrl))
+        : [];
+      res.status(200).json(normalized);
     } catch (error) {
       res.status(500).json({ message: "Error fetching feed", error: error.message });
     }
@@ -162,7 +192,11 @@ app.get(
         .limit(limit)
         .lean();
 
-      res.status(200).json(Array.isArray(posts) ? posts : []);
+      const baseUrl = getBaseUrl(req);
+      const normalized = Array.isArray(posts)
+        ? posts.map((p) => withAbsoluteMediaUrls(p, baseUrl))
+        : [];
+      res.status(200).json(normalized);
     } catch (error) {
       console.error("Error fetching user posts:", error);
       res.status(500).json({ message: "Error fetching user posts", error: error.message });

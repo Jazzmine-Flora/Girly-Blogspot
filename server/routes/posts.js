@@ -6,6 +6,22 @@ const Post = require("../models/Post");
 const auth = require("../middleware/auth");
 const { uploadMedia } = require("../middleware/upload");
 
+const getBaseUrl = (req) => {
+  const forwardedProto = req.headers["x-forwarded-proto"]?.split(",")[0];
+  const protocol = forwardedProto || req.protocol || "http";
+  return `${protocol}://${req.get("host")}`;
+};
+
+const withAbsoluteMediaUrls = (post, baseUrl) => {
+  if (!post || !Array.isArray(post.mediaUrls)) return post;
+  const mediaUrls = post.mediaUrls.map((url) => {
+    if (!url) return url;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`;
+  });
+  return { ...post, mediaUrls };
+};
+
 const handleUploadError = (err, req, res, next) => {
   if (!err) return next();
   if (err instanceof multer.MulterError) {
@@ -77,9 +93,11 @@ router.post("/", auth, (req, res, next) => {
     const populated = await Post.findById(newPost._id)
       .populate("author", "username profilePicture isAdmin")
       .lean();
+    const baseUrl = getBaseUrl(req);
+    const normalized = withAbsoluteMediaUrls(populated, baseUrl);
     const io = req.app.get("io");
-    if (io) io.emit("post:created", populated);
-    res.status(201).json(populated);
+    if (io) io.emit("post:created", normalized);
+    res.status(201).json(normalized);
   } catch (error) {
     res.status(500).json({ message: "Error creating post", error: error.message });
   }
@@ -92,7 +110,11 @@ router.get("/", auth, async (req, res) => {
       .populate("author", "username profilePicture isAdmin")
       .sort({ createdAt: -1 })
       .lean();
-    res.status(200).json(Array.isArray(posts) ? posts : []);
+    const baseUrl = getBaseUrl(req);
+    const normalized = Array.isArray(posts)
+      ? posts.map((p) => withAbsoluteMediaUrls(p, baseUrl))
+      : [];
+    res.status(200).json(normalized);
   } catch (error) {
     res.status(500).json({ message: "Error fetching posts", error: error.message });
   }
@@ -109,7 +131,8 @@ router.get("/:id", auth, async (req, res) => {
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
-    res.status(200).json(post);
+    const baseUrl = getBaseUrl(req);
+    res.status(200).json(withAbsoluteMediaUrls(post, baseUrl));
   } catch (error) {
     res.status(500).json({ message: "Error fetching post", error: error.message });
   }
