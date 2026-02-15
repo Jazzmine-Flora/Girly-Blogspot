@@ -8,7 +8,9 @@ function parseJwt(token) {
   try {
     const payload = token.split(".")[1];
     if (!payload) return null;
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    let base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padding = base64.length % 4;
+    if (padding) base64 += "=".repeat(4 - padding);
     const json = decodeURIComponent(
       atob(base64)
         .split("")
@@ -55,9 +57,9 @@ export function AuthProvider({ children }) {
       .then((data) => {
         if (!isMounted) return;
         setUser((prev) => ({
+          ...(prev || {}),
           id: userId,
           isAdmin: !!data?.isAdmin,
-          ...(prev || {}),
         }));
       })
       .catch(() => {
