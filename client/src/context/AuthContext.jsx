@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { disconnectSocket } from "../services/socket";
+import { getUserProfile } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -45,6 +46,26 @@ export function AuthProvider({ children }) {
     const payload = token ? parseJwt(token) : null;
     setUser(userId ? { id: userId, isAdmin: !!payload?.isAdmin } : null);
     setLoading(false);
+  }, [userId, token]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!userId || !token) return;
+    getUserProfile(userId)
+      .then((data) => {
+        if (!isMounted) return;
+        setUser((prev) => ({
+          id: userId,
+          isAdmin: !!data?.isAdmin,
+          ...(prev || {}),
+        }));
+      })
+      .catch(() => {
+        // ignore profile fetch errors
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [userId, token]);
 
   useEffect(() => {
