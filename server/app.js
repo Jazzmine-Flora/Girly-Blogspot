@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -49,11 +50,22 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "ok", service: "girly-blogspot-api" });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 // Serve uploaded files statically
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", authMiddleware, ageCheckMiddleware, userRoutes);
+// Legacy/alternate base paths (no /api prefix)
+app.use("/auth", authRoutes);
+app.use("/users", authMiddleware, ageCheckMiddleware, userRoutes);
 
 // Feed route MUST be before posts router so /feed is not matched as /:id
 // Supports pagination: ?limit=20&skip=0
@@ -109,6 +121,55 @@ app.get(
 );
 
 app.use("/api/posts", authMiddleware, ageCheckMiddleware, postRoutes);
+app.get(
+  "/posts/feed",
+  authMiddleware,
+  ageCheckMiddleware,
+  async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+      const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
+      const posts = await Post.find()
+        .populate("author", "username profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      res.status(200).json(Array.isArray(posts) ? posts : []);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching feed", error: error.message });
+    }
+  }
+);
+app.get(
+  "/posts/user/:userId",
+  authMiddleware,
+  ageCheckMiddleware,
+  async (req, res) => {
+    try {
+      const rawUserId = req.params.userId?.trim();
+      if (!rawUserId || !mongoose.Types.ObjectId.isValid(rawUserId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+      const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
+
+      const authorId = new mongoose.Types.ObjectId(rawUserId);
+      const posts = await Post.find({ author: authorId })
+        .populate("author", "username profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      res.status(200).json(Array.isArray(posts) ? posts : []);
+    } catch (error) {
+      console.error("Error fetching user posts:", error);
+      res.status(500).json({ message: "Error fetching user posts", error: error.message });
+    }
+  }
+);
+app.use("/posts", authMiddleware, ageCheckMiddleware, postRoutes);
 
 // Socket.IO auth & connection
 io.use((socket, next) => {

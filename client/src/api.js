@@ -1,7 +1,10 @@
 import axios from "axios";
 
 // Use proxy in dev (relative /api) to avoid CORS; full URL in production
-const API_URL = process.env.REACT_APP_API_URL || "/api";
+const RAW_API_URL = process.env.REACT_APP_API_URL || "/api";
+const API_URL = RAW_API_URL.endsWith("/api") || RAW_API_URL === "/api"
+  ? RAW_API_URL
+  : `${RAW_API_URL.replace(/\/$/, "")}/api`;
 
 const api = axios.create({
   baseURL: API_URL,
