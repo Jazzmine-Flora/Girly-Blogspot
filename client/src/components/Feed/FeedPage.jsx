@@ -87,7 +87,7 @@ const LoadMoreText = styled.p`
 `;
 
 export function FeedPage() {
-  const { posts, loading, loadingMore, hasMore, error, posting, socketConnected, addPost, refresh, loadMore } =
+  const { posts, loading, loadingMore, hasMore, error, posting, socketConnected, addPost, refresh, loadMore, deletePostById } =
     usePosts();
   const [composerOpen, setComposerOpen] = useState(false);
   const sentinelRef = useRef(null);
@@ -135,7 +135,9 @@ export function FeedPage() {
         </EmptyState>
       ) : (
         <>
-          {posts.map((post) => <PostCard key={post._id} post={post} />)}
+          {posts.map((post) => (
+            <PostCard key={post._id} post={post} onDelete={deletePostById} />
+          ))}
           {hasMore && <LoadMoreSentinel ref={sentinelRef} />}
           {loadingMore && <LoadMoreText>Loading more…</LoadMoreText>}
           {!hasMore && posts.length > 0 && (

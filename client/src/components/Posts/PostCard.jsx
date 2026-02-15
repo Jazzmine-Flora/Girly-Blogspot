@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { theme } from "../../styles/theme";
-import { Card, CardBody } from "../ui";
+import { Card, CardBody, Button } from "../ui";
 import { Avatar } from "../ui";
+import { useAuth } from "../../context/AuthContext";
 
 const StyledCard = styled(Card)`
   margin-bottom: ${theme.spacing.lg};
@@ -13,6 +14,13 @@ const PostHeader = styled.div`
   align-items: center;
   gap: ${theme.spacing.md};
   margin-bottom: ${theme.spacing.md};
+`;
+
+const PostActions = styled.div`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.sm};
 `;
 
 const AuthorInfo = styled.div`
@@ -136,10 +144,12 @@ const AuthorLink = styled(Link)`
   }
 `;
 
-export function PostCard({ post }) {
+export function PostCard({ post, onDelete }) {
+  const { userId, isAdmin } = useAuth();
   const authorName = getAuthorName(post);
   const authorId = getAuthorId(post);
   const authorPic = getAuthorProfilePicture(post);
+  const canDelete = !!(isAdmin || (authorId && userId && authorId === userId));
   const createdAt = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString(undefined, {
         month: "short",
@@ -173,6 +183,19 @@ export function PostCard({ post }) {
                 <PostDate>{createdAt}</PostDate>
               </AuthorInfo>
             </>
+          )}
+          {canDelete && typeof onDelete === "function" && (
+            <PostActions>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  if (window.confirm("Delete this post?")) onDelete(post._id);
+                }}
+              >
+                Delete
+              </Button>
+            </PostActions>
           )}
         </PostHeader>
         <StyledLink to={`/post/${post._id}`}>

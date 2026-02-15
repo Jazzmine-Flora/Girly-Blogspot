@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import styled from "styled-components";
 import { theme } from "../../styles/theme";
-import { getPostById } from "../../api";
+import { getPostById, deletePost } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { Card, CardBody, Avatar } from "../ui";
 import { Button } from "../ui";
@@ -30,6 +30,13 @@ const PostHeader = styled.div`
   align-items: center;
   gap: ${theme.spacing.md};
   margin-bottom: ${theme.spacing.lg};
+`;
+
+const PostActions = styled.div`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.sm};
 `;
 
 const AuthorInfo = styled.div``;
@@ -134,10 +141,11 @@ function getMediaUrl(url) {
 export function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId, isAdmin } = useAuth();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -166,6 +174,7 @@ export function PostDetailPage() {
   const authorName = getAuthorName(post);
   const authorId = getAuthorId(post);
   const authorPic = getAuthorProfilePicture(post);
+  const canDelete = !!(isAdmin || (authorId && userId && authorId === userId));
   const createdAt = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString(undefined, {
         month: "long",
@@ -203,6 +212,29 @@ export function PostDetailPage() {
                   <PostDate>{createdAt}</PostDate>
                 </AuthorInfo>
               </>
+            )}
+            {canDelete && (
+              <PostActions>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={deleting}
+                  onClick={async () => {
+                    if (!window.confirm("Delete this post?")) return;
+                    setDeleting(true);
+                    try {
+                      await deletePost(post._id);
+                      navigate("/feed", { replace: true });
+                    } catch {
+                      setError("Failed to delete post.");
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </Button>
+              </PostActions>
             )}
           </PostHeader>
           <Title>{post.title}</Title>

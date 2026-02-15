@@ -3,6 +3,23 @@ import { disconnectSocket } from "../services/socket";
 
 const AuthContext = createContext(null);
 
+function parseJwt(token) {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
+        .join("")
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,7 +30,8 @@ export function AuthProvider({ children }) {
   const login = useCallback((token, userId) => {
     localStorage.setItem("token", token);
     localStorage.setItem("userId", userId);
-    setUser({ id: userId });
+    const payload = token ? parseJwt(token) : null;
+    setUser({ id: userId, isAdmin: !!payload?.isAdmin });
   }, []);
 
   const logout = useCallback(() => {
@@ -24,14 +42,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    setUser(userId ? { id: userId } : null);
+    const payload = token ? parseJwt(token) : null;
+    setUser(userId ? { id: userId, isAdmin: !!payload?.isAdmin } : null);
     setLoading(false);
-  }, [userId]);
+  }, [userId, token]);
 
   useEffect(() => {
     const onStorage = () => {
       const newUserId = localStorage.getItem("userId");
-      setUser(newUserId ? { id: newUserId } : null);
+      const newToken = localStorage.getItem("token");
+      const payload = newToken ? parseJwt(newToken) : null;
+      setUser(newUserId ? { id: newUserId, isAdmin: !!payload?.isAdmin } : null);
     };
     const onUnauthorized = () => {
       disconnectSocket();
@@ -51,6 +72,7 @@ export function AuthProvider({ children }) {
     user,
     userId,
     token,
+    isAdmin: !!user?.isAdmin,
     isAuthenticated: !!token,
     loading,
     login,

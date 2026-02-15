@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getFeedPosts, createPost } from "../api";
+import { getFeedPosts, createPost, deletePost } from "../api";
 import { getSocket, disconnectSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
 
@@ -184,6 +184,22 @@ export function usePosts() {
 
   const refresh = useCallback(() => fetchPosts(true), [fetchPosts]);
 
+  const deletePostById = useCallback(
+    async (postId) => {
+      if (!postId) return;
+      const prev = postsRef.current;
+      setPosts((current) => current.filter((p) => p._id !== postId));
+      try {
+        await deletePost(postId);
+      } catch (err) {
+        setPosts(prev);
+        setError(err.response?.data?.message || "Failed to delete post");
+        throw err;
+      }
+    },
+    []
+  );
+
   return {
     posts,
     loading,
@@ -195,5 +211,6 @@ export function usePosts() {
     addPost,
     refresh,
     loadMore,
+    deletePostById,
   };
 }

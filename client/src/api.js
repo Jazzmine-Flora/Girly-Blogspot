@@ -95,6 +95,12 @@ export const getPostById = async (id) => {
   return data;
 };
 
+export const deletePost = (id) => {
+  return api.delete(`/posts/${id}`, {
+    headers: getAuthHeader(),
+  });
+};
+
 /** Create post - accepts FormData (for media) or plain object (text-only) */
 export const createPost = (data) => {
   return api.post("/posts", data, {
