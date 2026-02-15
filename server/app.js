@@ -77,7 +77,7 @@ app.get("/health", (req, res) => {
 });
 
 // Serve uploaded files statically
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", authMiddleware, ageCheckMiddleware, userRoutes);
