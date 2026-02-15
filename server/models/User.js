@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
   bio: { type: String, default: "" },
   profilePicture: { type: String, default: "" }, // URL or path to image
   age: { type: Number, required: true },
+  isAdmin: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model("User", UserSchema);
