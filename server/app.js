@@ -78,7 +78,7 @@ app.get(
       const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
       const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
       const posts = await Post.find()
-        .populate("author", "username profilePicture")
+        .populate("author", "username profilePicture isAdmin")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -106,7 +106,7 @@ app.get(
       
       const authorId = new mongoose.Types.ObjectId(rawUserId);
       const posts = await Post.find({ author: authorId })
-        .populate("author", "username profilePicture")
+        .populate("author", "username profilePicture isAdmin")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -130,7 +130,7 @@ app.get(
       const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
       const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
       const posts = await Post.find()
-        .populate("author", "username profilePicture")
+        .populate("author", "username profilePicture isAdmin")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -156,7 +156,7 @@ app.get(
 
       const authorId = new mongoose.Types.ObjectId(rawUserId);
       const posts = await Post.find({ author: authorId })
-        .populate("author", "username profilePicture")
+        .populate("author", "username profilePicture isAdmin")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)

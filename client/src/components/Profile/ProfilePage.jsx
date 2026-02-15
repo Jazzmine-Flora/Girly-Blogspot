@@ -36,6 +36,20 @@ const Username = styled.h1`
   color: ${theme.colors.text};
 `;
 
+const AdminBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: ${theme.spacing.xs};
+  padding: 2px 6px;
+  font-size: ${theme.typography.sizes.xs};
+  font-weight: ${theme.typography.weights.semibold};
+  color: ${theme.colors.primary};
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: ${theme.radii.full};
+`;
+
 const Bio = styled.p`
   margin: 0;
   font-size: ${theme.typography.sizes.base};
@@ -222,7 +236,10 @@ export function ProfilePage() {
       <ProfileHeader>
         <HeaderContent>
           <Avatar src={profilePic} name={user.username} size="96px" />
-          <Username>{user.username || "User"}</Username>
+          <Username>
+            {user.username || "User"}
+            {user.isAdmin && <AdminBadge>Admin</AdminBadge>}
+          </Username>
           <Bio>{user.bio || "No bio yet."}</Bio>
           {isOwnProfile && (
             <EditButton as={Link} to="/edit-profile" variant="secondary" size="sm">

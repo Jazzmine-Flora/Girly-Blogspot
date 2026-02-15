@@ -74,7 +74,9 @@ router.post("/", auth, (req, res, next) => {
       createdAt: new Date(),
     });
     await newPost.save();
-    const populated = await Post.findById(newPost._id).populate("author", "username profilePicture").lean();
+    const populated = await Post.findById(newPost._id)
+      .populate("author", "username profilePicture isAdmin")
+      .lean();
     const io = req.app.get("io");
     if (io) io.emit("post:created", populated);
     res.status(201).json(populated);
@@ -87,7 +89,7 @@ router.post("/", auth, (req, res, next) => {
 router.get("/", auth, async (req, res) => {
   try {
     const posts = await Post.find({ author: req.user.id })
-      .populate("author", "username profilePicture")
+      .populate("author", "username profilePicture isAdmin")
       .sort({ createdAt: -1 })
       .lean();
     res.status(200).json(Array.isArray(posts) ? posts : []);
@@ -102,7 +104,7 @@ router.get("/", auth, async (req, res) => {
 router.get("/:id", auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate("author", "username profilePicture")
+      .populate("author", "username profilePicture isAdmin")
       .lean();
     if (!post) {
       return res.status(404).json({ message: "Post not found" });

@@ -59,6 +59,20 @@ const AuthorName = styled.span`
   display: block;
 `;
 
+const AdminBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: ${theme.spacing.xs};
+  padding: 2px 6px;
+  font-size: ${theme.typography.sizes.xs};
+  font-weight: ${theme.typography.weights.semibold};
+  color: ${theme.colors.primary};
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: ${theme.radii.full};
+`;
+
 const PostDate = styled.span`
   font-size: ${theme.typography.sizes.xs};
   color: ${theme.colors.textMuted};
@@ -118,6 +132,11 @@ function getAuthorId(post) {
   return typeof post.author === "object" ? post.author._id : null;
 }
 
+function getAuthorIsAdmin(post) {
+  if (!post?.author || typeof post.author !== "object") return false;
+  return !!post.author.isAdmin;
+}
+
 function getAuthorProfilePicture(post) {
   if (!post?.author || typeof post.author !== "object") return null;
   const pic = post.author.profilePicture;
@@ -173,6 +192,7 @@ export function PostDetailPage() {
 
   const authorName = getAuthorName(post);
   const authorId = getAuthorId(post);
+  const authorIsAdmin = getAuthorIsAdmin(post);
   const authorPic = getAuthorProfilePicture(post);
   const canDelete = !!(isAdmin || (authorId && userId && authorId === userId));
   const createdAt = post.createdAt
@@ -200,7 +220,10 @@ export function PostDetailPage() {
               <AuthorLink to={`/profile/${authorId}`}>
                 <Avatar src={authorPic} name={authorName} size="48px" />
                 <AuthorInfo>
-                  <AuthorName>{authorName}</AuthorName>
+                  <AuthorName>
+                    {authorName}
+                    {authorIsAdmin && <AdminBadge>Admin</AdminBadge>}
+                  </AuthorName>
                   <PostDate>{createdAt}</PostDate>
                 </AuthorInfo>
               </AuthorLink>
@@ -208,7 +231,10 @@ export function PostDetailPage() {
               <>
                 <Avatar src={authorPic} name={authorName} size="48px" />
                 <AuthorInfo>
-                  <AuthorName>{authorName}</AuthorName>
+                  <AuthorName>
+                    {authorName}
+                    {authorIsAdmin && <AdminBadge>Admin</AdminBadge>}
+                  </AuthorName>
                   <PostDate>{createdAt}</PostDate>
                 </AuthorInfo>
               </>
