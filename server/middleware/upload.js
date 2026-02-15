@@ -1,26 +1,18 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
 
 const UPLOAD_DIR = path.join(__dirname, "../uploads");
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_IMAGES = 5;
 
-// Ensure upload directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+const isCloudinaryEnabled = () =>
+  !!(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname) || path.extname(file.mimetype);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-  },
+cloudinary.config({
+  secure: true,
 });
 
 const imageFilter = (req, file, cb) => {
@@ -52,10 +44,48 @@ const fileFilter = (req, file, cb) => {
 };
 
 exports.uploadMedia = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: MAX_VIDEO_SIZE },
 }).fields([
   { name: "images", maxCount: MAX_IMAGES },
   { name: "video", maxCount: 1 },
 ]);
+
+function ensureUploadDir() {
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+}
+
+function saveFileLocally(file, fieldOverride) {
+  ensureUploadDir();
+  const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+  const ext = path.extname(file.originalname) || "";
+  const field = fieldOverride || file.fieldname || "file";
+  const filename = `${field}-${uniqueSuffix}${ext}`;
+  const outPath = path.join(UPLOAD_DIR, filename);
+  fs.writeFileSync(outPath, file.buffer);
+  return `/uploads/${filename}`;
+}
+
+function uploadToCloudinary(file) {
+  const isVideo = file.mimetype?.startsWith("video/");
+  const resourceType = isVideo ? "video" : "image";
+  const folder = process.env.CLOUDINARY_FOLDER || "girly-blogspot";
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: resourceType, folder },
+      (err, result) => {
+        if (err) return reject(err);
+        resolve(result?.secure_url || result?.url);
+      }
+    );
+    stream.end(file.buffer);
+  });
+}
+
+exports.isCloudinaryEnabled = isCloudinaryEnabled;
+exports.saveFileLocally = saveFileLocally;
+exports.uploadToCloudinary = uploadToCloudinary;

@@ -4,7 +4,12 @@ const multer = require("multer");
 const router = express.Router();
 const Post = require("../models/Post");
 const auth = require("../middleware/auth");
-const { uploadMedia } = require("../middleware/upload");
+const {
+  uploadMedia,
+  uploadToCloudinary,
+  saveFileLocally,
+  isCloudinaryEnabled,
+} = require("../middleware/upload");
 
 const getBaseUrl = (req) => {
   const forwardedProto = req.headers["x-forwarded-proto"]?.split(",")[0];
@@ -70,10 +75,18 @@ router.post("/", auth, (req, res, next) => {
 
     if (hasImages) {
       mediaType = "image";
-      mediaUrls = imageFiles.map((f) => `/uploads/${f.filename}`);
+      if (isCloudinaryEnabled()) {
+        mediaUrls = await Promise.all(imageFiles.map((f) => uploadToCloudinary(f)));
+      } else {
+        mediaUrls = imageFiles.map((f) => saveFileLocally(f, "images"));
+      }
     } else if (hasVideo) {
       mediaType = "video";
-      mediaUrls = [`/uploads/${videoFile.filename}`];
+      if (isCloudinaryEnabled()) {
+        mediaUrls = [await uploadToCloudinary(videoFile)];
+      } else {
+        mediaUrls = [saveFileLocally(videoFile, "video")];
+      }
     }
 
     // Ensure author is stored as ObjectId (Mongoose will convert string automatically, but be explicit)
