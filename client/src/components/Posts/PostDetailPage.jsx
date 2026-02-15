@@ -152,6 +152,7 @@ function getAuthorProfilePicture(post) {
 function getMediaUrl(url) {
   if (!url) return "";
   if (url.startsWith("blob:")) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
   const apiUrl = process.env.REACT_APP_API_URL || "/api";
   const base = apiUrl.replace(/\/api\/?$/, "");
   return base ? `${base}${url}` : url;
